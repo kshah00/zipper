@@ -30,7 +30,10 @@ private struct TreeRowView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    rowContent
+                    Button(action: onToggleInclude) {
+                        rowContent
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .frame(height: 32)
@@ -58,6 +61,7 @@ private struct TreeRowView: View {
                     .foregroundStyle(.black)
             }
         }
+        .contentShape(Rectangle())
     }
 
     private var rowContent: some View {
