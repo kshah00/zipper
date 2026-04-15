@@ -17,73 +17,84 @@ private struct TreeRowView: View {
                 // Indent
                 Color.clear.frame(width: CGFloat(level) * 18 + 12, height: 1)
 
-                // Expand/collapse chevron
-                if node.isDirectory && !node.children.isEmpty {
+                Button(action: onToggleInclude) {
+                    checkbox
+                }
+                .buttonStyle(.plain)
+
+                Color.clear.frame(width: 8)
+
+                if isExpandable {
                     Button(action: onToggleExpand) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.textMuted)
-                            .rotationEffect(.degrees(isExpandedBinding.wrappedValue ? 90 : 0))
-                            .frame(width: 16, height: 16)
+                        rowContent
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Color.clear.frame(width: 16)
+                    rowContent
                 }
-
-                Color.clear.frame(width: 4)
-
-                Button(action: onToggleInclude) {
-                    HStack(spacing: 0) {
-                        // Checkbox
-                        ZStack {
-                            Circle()
-                                .fill(isOnBinding.wrappedValue ? Theme.accent : Color.clear)
-                                .frame(width: 16, height: 16)
-                                .overlay(
-                                    Circle().stroke(
-                                        isOnBinding.wrappedValue ? Theme.accent : Theme.textMuted,
-                                        lineWidth: 1.2
-                                    )
-                                )
-                            if isOnBinding.wrappedValue {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundStyle(.black)
-                            }
-                        }
-
-                        Color.clear.frame(width: 8)
-
-                        // File icon
-                        Image(systemName: node.isDirectory ? "folder.fill" : fileIcon(for: node.name))
-                            .font(.system(size: 12))
-                            .foregroundStyle(node.isDirectory ? Theme.accent.opacity(0.75) : Theme.textMuted)
-                            .frame(width: 16)
-
-                        Color.clear.frame(width: 6)
-
-                        // Name
-                        Text(node.name)
-                            .font(.system(size: 12))
-                            .foregroundStyle(isOnBinding.wrappedValue ? Theme.textPrimary : Theme.textSecondary)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        // Child count badge
-                        if node.isDirectory && !node.children.isEmpty {
-                            Text("\(node.children.count)")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Theme.textMuted)
-                                .padding(.trailing, 12)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
             .frame(height: 32)
         }
+    }
+
+    private var isExpandable: Bool {
+        node.isDirectory && !node.children.isEmpty
+    }
+
+    private var checkbox: some View {
+        ZStack {
+            Circle()
+                .fill(isOnBinding.wrappedValue ? Theme.accent : Color.clear)
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle().stroke(
+                        isOnBinding.wrappedValue ? Theme.accent : Theme.textMuted,
+                        lineWidth: 1.2
+                    )
+                )
+            if isOnBinding.wrappedValue {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.black)
+            }
+        }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 0) {
+            if isExpandable {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .rotationEffect(.degrees(isExpandedBinding.wrappedValue ? 90 : 0))
+                    .frame(width: 16, height: 16)
+            } else {
+                Color.clear.frame(width: 16)
+            }
+
+            Color.clear.frame(width: 4)
+
+            Image(systemName: node.isDirectory ? "folder.fill" : fileIcon(for: node.name))
+                .font(.system(size: 12))
+                .foregroundStyle(node.isDirectory ? Theme.accent.opacity(0.75) : Theme.textMuted)
+                .frame(width: 16)
+
+            Color.clear.frame(width: 6)
+
+            Text(node.name)
+                .font(.system(size: 12))
+                .foregroundStyle(isOnBinding.wrappedValue ? Theme.textPrimary : Theme.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isExpandable {
+                Text("\(node.children.count)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textMuted)
+                    .padding(.trailing, 12)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     private func fileIcon(for name: String) -> String {
@@ -1206,7 +1217,7 @@ struct ConfigurationView: View {
             let itemIsDirectory = values.isDirectory ?? false
             let relativePath = itemURL.path.replacingOccurrences(of: baseURL.path + "/", with: "")
             var node = FileNode(relativePath: relativePath, name: itemURL.lastPathComponent,
-                                isDirectory: itemIsDirectory, isIncluded: true, isExpanded: true)
+                                isDirectory: itemIsDirectory, isIncluded: true, isExpanded: false)
             if itemIsDirectory { node.children = try buildNodes(for: itemURL, baseURL: baseURL) }
             return node
         }
@@ -1239,7 +1250,7 @@ struct ConfigurationView: View {
             if node.relativePath == path { return node.isExpanded }
             if let r = findExpanded(path: path, in: node.children) { return r }
         }
-        return true
+        return false
     }
 
     private func findExpanded(path: String, in nodes: [FileNode]) -> Bool? {

@@ -1,5 +1,99 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+
+private struct FileDropReceiver: NSViewRepresentable {
+    @Binding var isTargeted: Bool
+    let onFileDrop: (URL) -> Void
+
+    func makeNSView(context: Context) -> DropView {
+        let view = DropView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: DropView, context: Context) {
+        nsView.coordinator = context.coordinator
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isTargeted: $isTargeted, onFileDrop: onFileDrop)
+    }
+
+    final class Coordinator: NSObject {
+        @Binding var isTargeted: Bool
+        let onFileDrop: (URL) -> Void
+
+        init(isTargeted: Binding<Bool>, onFileDrop: @escaping (URL) -> Void) {
+            _isTargeted = isTargeted
+            self.onFileDrop = onFileDrop
+        }
+    }
+
+    final class DropView: NSView {
+        weak var coordinator: Coordinator?
+        private var pendingURL: URL?
+
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            registerForDraggedTypes([.fileURL])
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            nil
+        }
+
+        override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+            guard let coordinator, draggedFileURL(from: sender) != nil else {
+                return []
+            }
+
+            coordinator.isTargeted = true
+            return .copy
+        }
+
+        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+            draggedFileURL(from: sender) == nil ? [] : .copy
+        }
+
+        override func draggingExited(_ sender: NSDraggingInfo?) {
+            coordinator?.isTargeted = false
+            pendingURL = nil
+        }
+
+        override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            draggedFileURL(from: sender) != nil
+        }
+
+        override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            pendingURL = draggedFileURL(from: sender)
+            return pendingURL != nil
+        }
+
+        override func concludeDragOperation(_ sender: NSDraggingInfo?) {
+            guard let coordinator else { return }
+
+            coordinator.isTargeted = false
+
+            guard let pendingURL else { return }
+            self.pendingURL = nil
+
+            coordinator.onFileDrop(pendingURL)
+        }
+
+        private func draggedFileURL(from sender: NSDraggingInfo) -> URL? {
+            let classes: [AnyClass] = [NSURL.self]
+            let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+            let urls = sender.draggingPasteboard.readObjects(forClasses: classes, options: options) as? [URL]
+            return urls?.first
+        }
+    }
+}
 
 struct ContentView: View {
     let initialURL: URL?
@@ -20,7 +114,6 @@ struct ContentView: View {
                 ConfigurationView(url: url, extractionDirectoryURL: extractionDirectoryURL) {
                     clearSelection()
                 }
-                .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: handleDrop)
                 .transition(.opacity)
             } else {
                 dropZone
@@ -50,7 +143,9 @@ struct ContentView: View {
                     .accessibilityHidden(true)
             }
         }
-        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: handleDrop)
+        .background(
+            FileDropReceiver(isTargeted: $isDropTargeted, onFileDrop: handleDroppedURL)
+        )
         .onAppear {
             if !hasHandledInitialURL, selectedURL == nil, let initialURL {
                 hasHandledInitialURL = true
@@ -122,7 +217,6 @@ struct ContentView: View {
         .onHover { hovering in
             isHoveringDropZone = hovering
         }
-        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: handleDrop)
         .onAppear {
             withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
                 iconBreathing = true
@@ -210,37 +304,9 @@ struct ContentView: View {
         }
     }
 
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }) else {
-            return false
-        }
-
-        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-            var droppedURL: URL?
-
-            if let data = item as? Data {
-                droppedURL = URL(dataRepresentation: data, relativeTo: nil)
-            } else if let url = item as? URL {
-                droppedURL = url
-            }
-
-            guard let url = droppedURL else {
-                _ = provider.loadObject(ofClass: URL.self) { fallbackURL, _ in
-                    guard let fallbackURL else { return }
-                    DispatchQueue.main.async {
-                        handlePickedItem(fallbackURL)
-                    }
-                }
-                return
-            }
-
-            guard FileManager.default.fileExists(atPath: url.path) else { return }
-
-            DispatchQueue.main.async {
-                handlePickedItem(url)
-            }
-        }
-
-        return true
+    private func handleDroppedURL(_ url: URL) {
+        isDropTargeted = false
+        NSApp.activate(ignoringOtherApps: true)
+        handlePickedItem(url)
     }
 }

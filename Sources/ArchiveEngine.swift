@@ -111,18 +111,19 @@ class ArchiveEngine {
         let task = ArchiveTask()
         
         DispatchQueue.global(qos: .userInitiated).async {
+            let fileManager = FileManager.default
 
             // Write to a temp dir — always sandbox-accessible
-            let tempDir = FileManager.default.temporaryDirectory
+            let tempDir = fileManager.temporaryDirectory
                 .appendingPathComponent("ZipperOutput", isDirectory: true)
-            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            try? fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
             let baseName = url.lastPathComponent
             let outputName = "\(baseName).\(format)"
             let outputURL = tempDir.appendingPathComponent(outputName)
 
-            if FileManager.default.fileExists(atPath: outputURL.path) {
-                try? FileManager.default.removeItem(at: outputURL)
+            if fileManager.fileExists(atPath: outputURL.path) {
+                try? fileManager.removeItem(at: outputURL)
             }
 
             let normalizedExclusions = excludedPaths
@@ -150,87 +151,107 @@ class ArchiveEngine {
             let outputPipe = Pipe()
             process.standardOutput = outputPipe
             process.standardError = outputPipe
+            var cleanupURLs: [URL] = []
+            defer {
+                for cleanupURL in cleanupURLs {
+                    try? fileManager.removeItem(at: cleanupURL)
+                }
+            }
 
-            if format == "zip" {
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-                var args = ["-r"]
+            do {
+                if format == "zip" {
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+                    var args = ["-r"]
 
-                if !password.isEmpty {
-                    args += ["-P", password]
+                    if !password.isEmpty {
+                        args += ["-P", password]
+                    }
+
+                    args.append(outputURL.path)
+                    args.append(baseName)
+
+                    let excludePatterns = self.zipExcludePatterns(
+                        baseName: baseName,
+                        removeMacFiles: removeMacFiles,
+                        exclusions: normalizedExclusions
+                    )
+                    if !excludePatterns.isEmpty {
+                        let excludeListURL = try self.writeListFile(
+                            patterns: excludePatterns,
+                            in: tempDir,
+                            prefix: "zip-excludes"
+                        )
+                        cleanupURLs.append(excludeListURL)
+                        args.append("-x@\(excludeListURL.path)")
+                    }
+
+                    process.arguments = args
+                    process.currentDirectoryURL = url.deletingLastPathComponent()
+
+                } else if format == "7z" {
+                    guard let sevenZipURL = Bundle.main.url(forResource: "7zz", withExtension: nil) else {
+                        DispatchQueue.main.async {
+                            completion(.failure(NSError(
+                                domain: "ArchiveError", code: ErrorCode.bundledSevenZipMissing,
+                                userInfo: [NSLocalizedDescriptionKey: "Bundled 7zz not found"]
+                            )))
+                        }
+                        return
+                    }
+
+                    process.executableURL = sevenZipURL
+                    var args = ["a", "-bsp1"]
+
+                    if !password.isEmpty {
+                        args += ["-p\(password)", "-mhe=on"]
+                    }
+
+                    args.append(outputURL.path)
+                    args.append(baseName)
+
+                    let excludePatterns = self.sevenZipExcludePatterns(
+                        baseName: baseName,
+                        removeMacFiles: removeMacFiles,
+                        exclusions: normalizedExclusions
+                    )
+                    if !excludePatterns.isEmpty {
+                        let excludeListURL = try self.writeListFile(
+                            patterns: excludePatterns,
+                            in: tempDir,
+                            prefix: "7z-excludes"
+                        )
+                        cleanupURLs.append(excludeListURL)
+                        args += ["-scsUTF-8", "-xr@\(excludeListURL.path)"]
+                    }
+
+                    process.arguments = args
+                    process.currentDirectoryURL = url.deletingLastPathComponent()
                 }
 
-                args.append(outputURL.path)
-                args.append(baseName)
-
-                if removeMacFiles {
-                    args += ["-x", "*.DS_Store*", "-x", "*__MACOSX*"]
-                }
-
-                for ex in normalizedExclusions {
-                    let fullPath = "\(baseName)/\(ex.relativePath)"
-                    args += ["-x", fullPath]
-                    if ex.isDirectory { args += ["-x", "\(fullPath)/*"] }
-                }
-
-                process.arguments = args
-                process.currentDirectoryURL = url.deletingLastPathComponent()
-
-            } else if format == "7z" {
-                guard let sevenZipURL = Bundle.main.url(forResource: "7zz", withExtension: nil) else {
+                if task.isCancelled {
                     DispatchQueue.main.async {
-                        completion(.failure(NSError(
-                            domain: "ArchiveError", code: ErrorCode.bundledSevenZipMissing,
-                            userInfo: [NSLocalizedDescriptionKey: "Bundled 7zz not found"]
-                        )))
+                        completion(.failure(NSError(domain: "ArchiveError", code: ErrorCode.cancelled, userInfo: [NSLocalizedDescriptionKey: "Cancelled"])))
                     }
                     return
                 }
 
-                process.executableURL = sevenZipURL
-                var args = ["a", "-bsp1"]
+                var outputBuffer = ""
+                outputPipe.fileHandleForReading.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
 
-                if !password.isEmpty {
-                    args += ["-p\(password)", "-mhe=on"]
-                }
+                    if format == "7z" {
+                        self.reportSevenZipProgress(from: chunk, reportedProgress: &reportedProgress, progress: progress)
+                        return
+                    }
 
-                args.append(outputURL.path)
-                args.append(baseName)
+                    outputBuffer += chunk.replacingOccurrences(of: "\r", with: "\n")
+                    let lines = outputBuffer.components(separatedBy: "\n")
+                    outputBuffer = lines.last ?? ""
 
-                if removeMacFiles {
-                    args += ["-xr!*.DS_Store", "-xr!__MACOSX"]
-                }
-
-                for ex in normalizedExclusions {
-                    let fullPath = "\(baseName)/\(ex.relativePath)"
-                    args.append("-xr!\(fullPath)")
-                    if ex.isDirectory { args.append("-xr!\(fullPath)/*") }
-                }
-
-                process.arguments = args
-                process.currentDirectoryURL = url.deletingLastPathComponent()
-            }
-
-            if task.isCancelled {
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "ArchiveError", code: ErrorCode.cancelled, userInfo: [NSLocalizedDescriptionKey: "Cancelled"])))
-                }
-                return
-            }
-
-            var outputBuffer = ""
-            outputPipe.fileHandleForReading.readabilityHandler = { handle in
-                let data = handle.availableData
-                guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-
-                outputBuffer += chunk.replacingOccurrences(of: "\r", with: "\n")
-                let lines = outputBuffer.components(separatedBy: "\n")
-                outputBuffer = lines.last ?? ""
-
-                for line in lines.dropLast() {
-                    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { continue }
-
-                    if format == "zip", trimmed.contains("adding:") {
+                    for line in lines.dropLast() {
+                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty, trimmed.contains("adding:") else { continue }
                         guard let entry = self.zipEntryPath(from: trimmed) else { continue }
                         guard !seenEntries.contains(entry) else { continue }
                         seenEntries.insert(entry)
@@ -242,24 +263,16 @@ class ArchiveEngine {
                             reportedProgress = fraction
                             DispatchQueue.main.async { progress(fraction) }
                         }
-                    } else if format == "7z", let fraction = self.sevenZipFraction(from: trimmed) {
-                        let scaled = min(0.97, max(reportedProgress, fraction * 0.97))
-                        if scaled > reportedProgress {
-                            reportedProgress = scaled
-                            DispatchQueue.main.async { progress(scaled) }
-                        }
                     }
                 }
-            }
 
-            do {
                 try process.run()
                 process.waitUntilExit()
                 outputPipe.fileHandleForReading.readabilityHandler = nil
 
                 DispatchQueue.main.async {
                     if task.isCancelled {
-                        try? FileManager.default.removeItem(at: outputURL)
+                        try? fileManager.removeItem(at: outputURL)
                         completion(.failure(NSError(
                             domain: "ArchiveError",
                             code: ErrorCode.cancelled,
@@ -273,7 +286,7 @@ class ArchiveEngine {
                         if process.terminationStatus == 0 {
                             completion(.success(outputURL))
                         } else {
-                            try? FileManager.default.removeItem(at: outputURL)
+                            try? fileManager.removeItem(at: outputURL)
                             completion(.failure(NSError(
                                 domain: "ArchiveError",
                                 code: Int(process.terminationStatus),
@@ -284,6 +297,7 @@ class ArchiveEngine {
                 }
             } catch {
                 outputPipe.fileHandleForReading.readabilityHandler = nil
+                try? fileManager.removeItem(at: outputURL)
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
@@ -348,18 +362,8 @@ class ArchiveEngine {
 
                 outputLog += chunk
                 outputBuffer += chunk.replacingOccurrences(of: "\r", with: "\n")
-                let lines = outputBuffer.components(separatedBy: "\n")
-                outputBuffer = lines.last ?? ""
-
-                for line in lines.dropLast() {
-                    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty, let fraction = self.sevenZipFraction(from: trimmed) else { continue }
-                    let scaled = min(0.97, max(reportedProgress, fraction * 0.97))
-                    if scaled > reportedProgress {
-                        reportedProgress = scaled
-                        DispatchQueue.main.async { progress(scaled) }
-                    }
-                }
+                self.reportSevenZipProgress(from: outputBuffer, reportedProgress: &reportedProgress, progress: progress)
+                outputBuffer.removeAll(keepingCapacity: true)
             }
 
             do {
@@ -486,6 +490,61 @@ class ArchiveEngine {
         return false
     }
 
+    private func zipExcludePatterns(
+        baseName: String,
+        removeMacFiles: Bool,
+        exclusions: [ExcludedPath]
+    ) -> [String] {
+        var patterns: [String] = []
+
+        if removeMacFiles {
+            patterns += ["*.DS_Store*", "*__MACOSX*"]
+        }
+
+        for exclusion in exclusions {
+            let fullPath = "\(baseName)/\(exclusion.relativePath)"
+            patterns.append(fullPath)
+            if exclusion.isDirectory {
+                patterns.append("\(fullPath)/*")
+            }
+        }
+
+        return patterns
+    }
+
+    private func sevenZipExcludePatterns(
+        baseName: String,
+        removeMacFiles: Bool,
+        exclusions: [ExcludedPath]
+    ) -> [String] {
+        var patterns: [String] = []
+
+        if removeMacFiles {
+            patterns += ["*.DS_Store", "__MACOSX"]
+        }
+
+        for exclusion in exclusions {
+            let fullPath = "\(baseName)/\(exclusion.relativePath)"
+            patterns.append(fullPath)
+            if exclusion.isDirectory {
+                patterns.append("\(fullPath)/*")
+            }
+        }
+
+        return patterns
+    }
+
+    private func writeListFile(
+        patterns: [String],
+        in directory: URL,
+        prefix: String
+    ) throws -> URL {
+        let listFileURL = directory.appendingPathComponent("\(prefix)-\(UUID().uuidString).txt")
+        let contents = patterns.joined(separator: "\n") + "\n"
+        try contents.write(to: listFileURL, atomically: true, encoding: .utf8)
+        return listFileURL
+    }
+
     private func zipEntryPath(from line: String) -> String? {
         guard let addingRange = line.range(of: "adding:") else { return nil }
         var remainder = line[addingRange.upperBound...].trimmingCharacters(in: .whitespaces)
@@ -503,6 +562,27 @@ class ArchiveEngine {
         let percentString = nsLine.substring(with: match.range(at: 1))
         guard let percent = Double(percentString) else { return nil }
         return min(max(percent / 100.0, 0), 1)
+    }
+
+    private func reportSevenZipProgress(
+        from text: String,
+        reportedProgress: inout Double,
+        progress: @escaping (Double) -> Void
+    ) {
+        let nsText = text as NSString
+        let matches = sevenZipPercentRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+
+        for match in matches {
+            guard match.numberOfRanges >= 2 else { continue }
+            let percentString = nsText.substring(with: match.range(at: 1))
+            guard let percent = Double(percentString) else { continue }
+
+            let scaled = min(0.97, max(reportedProgress, (percent / 100.0) * 0.97))
+            if scaled > reportedProgress {
+                reportedProgress = scaled
+                DispatchQueue.main.async { progress(scaled) }
+            }
+        }
     }
 
     private func passwordFailureDescription(for output: String) -> String? {
