@@ -2,9 +2,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    let initialURL: URL?
+
     @State private var selectedURL: URL?
     @State private var isDropTargeted = false
     @State private var iconBreathing = false
+    @State private var isHoveringDropZone = false
 
     var body: some View {
         ZStack {
@@ -23,6 +26,34 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if selectedURL == nil {
+                selectFile()
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if selectedURL == nil {
+                Button("", action: selectFile)
+                    .keyboardShortcut("o", modifiers: .command)
+                    .frame(width: 0, height: 0)
+                    .opacity(0.001)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: handleDrop)
+        .onAppear {
+            if selectedURL == nil, let initialURL {
+                selectedURL = initialURL
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openArchiveInCurrentWindow)) { notification in
+            guard let url = notification.object as? URL else { return }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                selectedURL = url
+            }
+        }
         .animation(.easeInOut(duration: 0.3), value: selectedURL != nil)
     }
 
@@ -37,24 +68,24 @@ struct ContentView: View {
 
             Spacer()
 
-            VStack(spacing: 22) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Theme.surface)
+                VStack(spacing: 22) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(isHoveringDropZone ? Theme.surfaceActive : Theme.surface)
                         .frame(width: 120, height: 120)
                         .overlay(
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
                                 .stroke(
-                                    isDropTargeted ? Theme.accent.opacity(0.7) : Theme.border,
-                                    lineWidth: isDropTargeted ? 2 : 1
+                                    (isDropTargeted || isHoveringDropZone) ? Theme.accent.opacity(0.7) : Theme.border,
+                                    lineWidth: (isDropTargeted || isHoveringDropZone) ? 2 : 1
                                 )
                         )
 
                     Image(systemName: "doc.zipper")
                         .font(.system(size: 46, weight: .ultraLight))
-                        .foregroundStyle(isDropTargeted ? Theme.accent : Theme.textSecondary)
+                        .foregroundStyle((isDropTargeted || isHoveringDropZone) ? Theme.accent : Theme.textSecondary)
                         .opacity(iconBreathing ? 1.0 : 0.65)
-                        .scaleEffect(isDropTargeted ? 1.06 : 1.0)
+                        .scaleEffect((isDropTargeted || isHoveringDropZone) ? 1.06 : 1.0)
                 }
                 .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
 
@@ -72,6 +103,11 @@ struct ContentView: View {
                 .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: selectFile)
+        .onHover { hovering in
+            isHoveringDropZone = hovering
+        }
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted, perform: handleDrop)
         .onAppear {
             withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
@@ -84,6 +120,8 @@ struct ContentView: View {
 
     private func selectFile() {
         let panel = NSOpenPanel()
+        panel.title = "Open file or folder"
+        panel.prompt = "Open"
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = false
@@ -120,6 +158,8 @@ struct ContentView: View {
                 }
                 return
             }
+
+            guard FileManager.default.fileExists(atPath: url.path) else { return }
 
             DispatchQueue.main.async {
                 withAnimation(.easeInOut(duration: 0.25)) {

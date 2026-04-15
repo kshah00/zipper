@@ -1,6 +1,18 @@
 import Foundation
 import AppKit
 
+class ArchiveTask {
+    var process: Process?
+    var isCancelled = false
+    
+    func cancel() {
+        isCancelled = true
+        if process?.isRunning == true {
+            process?.terminate()
+        }
+    }
+}
+
 class ArchiveEngine {
     static let shared = ArchiveEngine()
 
@@ -13,6 +25,7 @@ class ArchiveEngine {
 
     /// Compresses to a temp directory (always writable), then hands back the URL.
     /// The caller is responsible for prompting the user to save/move the file.
+    @discardableResult
     func compress(
         url: URL,
         format: String,
@@ -21,7 +34,9 @@ class ArchiveEngine {
         excludedPaths: [ExcludedPath],
         progress: @escaping (Double) -> Void,
         completion: @escaping (Result<URL, Error>) -> Void
-    ) {
+    ) -> ArchiveTask {
+        let task = ArchiveTask()
+        
         DispatchQueue.global(qos: .userInitiated).async {
 
             // Write to a temp dir — always sandbox-accessible
@@ -57,6 +72,8 @@ class ArchiveEngine {
             var reportedProgress = 0.0
 
             let process = Process()
+            task.process = process
+            
             let outputPipe = Pipe()
             process.standardOutput = outputPipe
             process.standardError = outputPipe
@@ -120,6 +137,13 @@ class ArchiveEngine {
                 process.currentDirectoryURL = url.deletingLastPathComponent()
             }
 
+            if task.isCancelled {
+                DispatchQueue.main.async {
+                    completion(.failure(NSError(domain: "ArchiveError", code: -999, userInfo: [NSLocalizedDescriptionKey: "Cancelled"])))
+                }
+                return
+            }
+
             var outputBuffer = ""
             outputPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
@@ -161,11 +185,22 @@ class ArchiveEngine {
                 outputPipe.fileHandleForReading.readabilityHandler = nil
 
                 DispatchQueue.main.async {
+                    if task.isCancelled {
+                        try? FileManager.default.removeItem(at: outputURL)
+                        completion(.failure(NSError(
+                            domain: "ArchiveError",
+                            code: -999,
+                            userInfo: [NSLocalizedDescriptionKey: "Cancelled"]
+                        )))
+                        return
+                    }
+                    
                     progress(1.0)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                         if process.terminationStatus == 0 {
                             completion(.success(outputURL))
                         } else {
+                            try? FileManager.default.removeItem(at: outputURL)
                             completion(.failure(NSError(
                                 domain: "ArchiveError",
                                 code: Int(process.terminationStatus),
@@ -179,6 +214,8 @@ class ArchiveEngine {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
+        
+        return task
     }
 
     private struct ProgressPlan {

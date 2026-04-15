@@ -104,6 +104,8 @@ private struct CompletionView: View {
     let outputURL: URL
     let format: String
     let encrypt: Bool
+    let saveShortcut: ShortcutBinding
+    let shareShortcut: ShortcutBinding
     let onSave: (URL) -> Void
     let onShare: (URL) -> Void
 
@@ -167,6 +169,7 @@ private struct CompletionView: View {
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut(saveShortcut.keyEquivalent, modifiers: saveShortcut.eventModifiers)
 
                 Button { onShare(outputURL) } label: {
                     HStack(spacing: 6) {
@@ -180,6 +183,7 @@ private struct CompletionView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Theme.border, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut(shareShortcut.keyEquivalent, modifiers: shareShortcut.eventModifiers)
             }
             .padding(16)
         }
@@ -245,6 +249,16 @@ struct ConfigurationView: View {
     @State private var loadError: String?
     @State private var searchText = ""
     @State private var completionState: CompletionState = .idle
+    @State private var keyMonitor: Any?
+    @State private var activeArchiveTask: ArchiveTask?
+
+    @AppStorage(PreferenceKeys.defaultSaveLocationBookmark) private var defaultSaveLocationBookmark = Data()
+    @AppStorage(PreferenceKeys.preferredFormat) private var preferredFormat = "zip"
+    @AppStorage(PreferenceKeys.saveShortcutKey) private var saveShortcutKey = "s"
+    @AppStorage(PreferenceKeys.saveShortcutModifiers) private var saveShortcutModifiers = ShortcutModifierMask.command
+    @AppStorage(PreferenceKeys.shareShortcutKey) private var shareShortcutKey = "e"
+    @AppStorage(PreferenceKeys.shareShortcutModifiers) private var shareShortcutModifiers = ShortcutModifierMask.command
+    @FocusState private var isSearchFocused: Bool
 
     private let formats = ["zip", "7z"]
 
@@ -271,6 +285,8 @@ struct ConfigurationView: View {
                         outputURL: outURL,
                         format: format,
                         encrypt: encrypt,
+                        saveShortcut: saveShortcut,
+                        shareShortcut: shareShortcut,
                         onSave: saveArchive,
                         onShare: shareArchive
                     )
@@ -283,7 +299,14 @@ struct ConfigurationView: View {
             .animation(.easeInOut(duration: 0.3), value: stateKey)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear(perform: loadTree)
+        .onAppear {
+            format = formats.contains(preferredFormat) ? preferredFormat : "zip"
+            loadTree()
+            setupKeyMonitor()
+        }
+        .onDisappear {
+            removeKeyMonitor()
+        }
     }
 
     private var stateKey: String {
@@ -314,6 +337,7 @@ struct ConfigurationView: View {
 
     private var backLabel: String {
         switch completionState {
+        case .archiving:      return "Cancel"
         case .done, .failed:  return "Discard"
         case .idle where currentStep == .files: return "Back"
         default: return "Back"
@@ -322,6 +346,8 @@ struct ConfigurationView: View {
 
     private func handleBack() {
         switch completionState {
+        case .archiving:
+            activeArchiveTask?.cancel()
         case .done, .failed:
             completionState = .idle
             currentStep = .files
@@ -332,7 +358,6 @@ struct ConfigurationView: View {
             withAnimation(.easeInOut(duration: 0.22)) {
                 currentStep = Step(rawValue: currentStep.rawValue - 1) ?? .files
             }
-        default: break
         }
     }
 
@@ -392,6 +417,7 @@ struct ConfigurationView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Theme.textMuted)
                 TextField("Search files…", text: $searchText).textFieldStyle(.plain).font(.system(size: 12))
+                    .focused($isSearchFocused)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(Theme.textMuted)
@@ -554,6 +580,7 @@ struct ConfigurationView: View {
                 Text("Compressing…").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.textPrimary)
                 Text(url.lastPathComponent).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -594,11 +621,7 @@ struct ConfigurationView: View {
                     .buttonStyle(GoldButtonStyle())
                     .disabled(!canCompress).opacity(canCompress ? 1 : 0.35)
             } else {
-                Button("Next") {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        currentStep = Step(rawValue: currentStep.rawValue + 1) ?? .encryption
-                    }
-                }
+                Button("Next", action: goToNextStep)
                 .buttonStyle(GoldButtonStyle())
                 .disabled(!canProceed).opacity(canProceed ? 1 : 0.35)
             }
@@ -609,6 +632,24 @@ struct ConfigurationView: View {
     private var canProceed: Bool { currentStep == .files ? includedCount > 0 : true }
     private var canCompress: Bool { includedCount > 0 && !(encrypt && password.isEmpty) }
 
+    private var saveShortcut: ShortcutBinding {
+        ShortcutBinding(
+            key: saveShortcutKey,
+            modifiersMask: saveShortcutModifiers,
+            fallbackKey: "s",
+            fallbackMask: ShortcutModifierMask.command
+        )
+    }
+
+    private var shareShortcut: ShortcutBinding {
+        ShortcutBinding(
+            key: shareShortcutKey,
+            modifiersMask: shareShortcutModifiers,
+            fallbackKey: "e",
+            fallbackMask: ShortcutModifierMask.command
+        )
+    }
+
     // MARK: - File Actions
 
     private func saveArchive(tempURL: URL) {
@@ -616,6 +657,13 @@ struct ConfigurationView: View {
         panel.nameFieldStringValue = tempURL.lastPathComponent
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
+
+        if let defaultDirectory = SaveLocationBookmark.resolve(defaultSaveLocationBookmark) {
+            _ = defaultDirectory.startAccessingSecurityScopedResource()
+            panel.directoryURL = defaultDirectory
+            defaultDirectory.stopAccessingSecurityScopedResource()
+        }
+
         guard panel.runModal() == .OK, let dest = panel.url else { return }
         do {
             if FileManager.default.fileExists(atPath: dest.path) { try FileManager.default.removeItem(at: dest) }
@@ -633,6 +681,52 @@ struct ConfigurationView: View {
         }
     }
 
+    private func goToNextStep() {
+        guard case .idle = completionState else { return }
+        guard currentStep != .encryption else { return }
+        guard !isSearchFocused else { return }
+        guard canProceed else { return }
+        withAnimation(.easeInOut(duration: 0.22)) {
+            currentStep = Step(rawValue: currentStep.rawValue + 1) ?? .encryption
+        }
+    }
+
+    private func setupKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Return (36) or Keypad Enter (76)
+            if event.keyCode == 36 || event.keyCode == 76 {
+                if currentStep == .encryption {
+                    if canCompress { startArchiving() }
+                } else {
+                    if canProceed { goToNextStep() }
+                }
+                return nil
+            }
+            
+            let isTextFieldFocused = (NSApp.keyWindow?.firstResponder is NSTextView)
+            
+            if !isTextFieldFocused {
+                if event.keyCode == 124 { // Right arrow
+                    if currentStep != .encryption && canProceed {
+                        goToNextStep()
+                    }
+                    return nil
+                } else if event.keyCode == 123 { // Left arrow
+                    handleBack()
+                    return nil
+                }
+            }
+            
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        guard let keyMonitor else { return }
+        NSEvent.removeMonitor(keyMonitor)
+        self.keyMonitor = nil
+    }
 
     // MARK: - Archive
 
@@ -640,7 +734,7 @@ struct ConfigurationView: View {
         guard canCompress else { return }
         withAnimation(.easeInOut(duration: 0.3)) { completionState = .archiving; progress = 0 }
 
-        ArchiveEngine.shared.compress(
+        activeArchiveTask = ArchiveEngine.shared.compress(
             url: url, format: format, password: encrypt ? password : "",
             removeMacFiles: removeMacFiles, excludedPaths: excludedPaths()
         ) { value in
@@ -648,9 +742,17 @@ struct ConfigurationView: View {
         } completion: { result in
             withAnimation(.easeInOut(duration: 0.4)) {
                 switch result {
-                case .success(let outURL): completionState = .done(outURL)
-                case .failure(let err):    completionState = .failed(err.localizedDescription)
+                case .success(let outURL):
+                    completionState = .done(outURL)
+                case .failure(let err):
+                    let nsError = err as NSError
+                    if nsError.code == -999 {
+                        completionState = .idle
+                    } else {
+                        completionState = .failed(err.localizedDescription)
+                    }
                 }
+                activeArchiveTask = nil
             }
         }
     }

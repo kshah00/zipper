@@ -9,19 +9,27 @@
 /* Begin PBXBuildFile section */
 		18F31977FE18E2C978A7C830 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AFAEE08A84E686DBE27E74 /* ContentView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		31B60A361DFDF46584DF70F4 /* ZipperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		51676C0C7D1C41D5A7538F1F /* AppEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		57C11C78FCD9ED2B6C8909F0 /* FileAssociationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		58A495B2537F3E3A229412F5 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096B2947E3769DEDFFFF7588 /* PreferencesView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		7802A2135F5429350B6B4667 /* ArchiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEF4A554D71B952AB62F29E /* ArchiveEngine.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		7EA522BA6CE938341C1F010F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7389591708E89721A354685F /* Theme.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		8EC4927188D2B14963DB1F5E /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A214D75CDE06A08A1270BB99 /* AppPreferences.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		C18BEF367248CED1DA63DF6B /* ConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F86A6DA7F834E24BED87357 /* ConfigurationView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		096B2947E3769DEDFFFF7588 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		7389591708E89721A354685F /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		75ED2604ABAFB4C4BB813294 /* 7zz */ = {isa = PBXFileReference; path = 7zz; sourceTree = "<group>"; };
 		8F86A6DA7F834E24BED87357 /* ConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationView.swift; sourceTree = "<group>"; };
 		8FEF4A554D71B952AB62F29E /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
 		92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipperApp.swift; sourceTree = "<group>"; };
 		98BE0BFE6126BC1106F7BFB8 /* ZipperApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZipperApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A214D75CDE06A08A1270BB99 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		A3AFAEE08A84E686DBE27E74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAssociationManager.swift; sourceTree = "<group>"; };
+		D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEvents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -36,9 +44,13 @@
 		3A018199211D210ACB1F806B /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */,
+				A214D75CDE06A08A1270BB99 /* AppPreferences.swift */,
 				8FEF4A554D71B952AB62F29E /* ArchiveEngine.swift */,
 				8F86A6DA7F834E24BED87357 /* ConfigurationView.swift */,
 				A3AFAEE08A84E686DBE27E74 /* ContentView.swift */,
+				C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */,
+				096B2947E3769DEDFFFF7588 /* PreferencesView.swift */,
 				7389591708E89721A354685F /* Theme.swift */,
 				92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */,
 				F01054DD9E4256FCCBE70EAB /* Resources */,
@@ -139,9 +151,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				51676C0C7D1C41D5A7538F1F /* AppEvents.swift in Sources */,
+				8EC4927188D2B14963DB1F5E /* AppPreferences.swift in Sources */,
 				7802A2135F5429350B6B4667 /* ArchiveEngine.swift in Sources */,
 				C18BEF367248CED1DA63DF6B /* ConfigurationView.swift in Sources */,
 				18F31977FE18E2C978A7C830 /* ContentView.swift in Sources */,
+				57C11C78FCD9ED2B6C8909F0 /* FileAssociationManager.swift in Sources */,
+				58A495B2537F3E3A229412F5 /* PreferencesView.swift in Sources */,
 				7EA522BA6CE938341C1F010F /* Theme.swift in Sources */,
 				31B60A361DFDF46584DF70F4 /* ZipperApp.swift in Sources */,
 			);
@@ -215,7 +231,14 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_CFBundleTypeName = Archive;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_CFBundleTypeRole = Viewer;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSHandlerRank = Owner;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_0 = "public.zip-archive";
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_1 = "com.rarlab.rar-archive";
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_2 = "org.7-zip.7-zip-archive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -237,7 +260,14 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_CFBundleTypeName = Archive;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_CFBundleTypeRole = Viewer;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSHandlerRank = Owner;
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_0 = "public.zip-archive";
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_1 = "com.rarlab.rar-archive";
+				INFOPLIST_KEY_CFBundleDocumentTypes_0_LSItemContentTypes_2 = "org.7-zip.7-zip-archive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
