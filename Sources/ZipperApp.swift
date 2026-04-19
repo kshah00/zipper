@@ -37,7 +37,7 @@ struct ZipperApp: App {
 
     var body: some Scene {
         Window("Zipper", id: "main") {
-            ContentView(initialURL: nil)
+            ContentView()
                 .frame(minWidth: 380, minHeight: 520)
                 .background(Theme.bg)
                 .onAppear {
