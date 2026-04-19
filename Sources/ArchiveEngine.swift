@@ -105,6 +105,7 @@ class ArchiveEngine {
         password: String,
         removeMacFiles: Bool,
         excludedPaths: [ExcludedPath],
+        gitignoreExcludedPaths: [ExcludedPath],
         progress: @escaping (Double) -> Void,
         completion: @escaping (Result<URL, Error>) -> Void
     ) -> ArchiveTask {
@@ -126,20 +127,15 @@ class ArchiveEngine {
                 try? fileManager.removeItem(at: outputURL)
             }
 
-            let normalizedExclusions = excludedPaths
-                .map { exclusion -> ExcludedPath in
-                    let cleanPath = exclusion.relativePath
-                        .replacingOccurrences(of: "\\", with: "/")
-                        .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                    return ExcludedPath(relativePath: cleanPath, isDirectory: exclusion.isDirectory)
-                }
-                .filter { !$0.relativePath.isEmpty }
+            let normalizedExclusions = Self.normalizedExcludedPaths(excludedPaths)
+            let normalizedGitignore = Self.normalizedExcludedPaths(gitignoreExcludedPaths)
+            let mergedExclusions = Self.mergedExcludedPaths(normalizedExclusions, normalizedGitignore)
 
             let progressPlan = self.makeProgressPlan(
                 sourceURL: url,
                 baseName: baseName,
                 removeMacFiles: removeMacFiles,
-                exclusions: normalizedExclusions
+                exclusions: mergedExclusions
             )
             var processedBytes: Int64 = 0
             var seenEntries = Set<String>()
@@ -173,7 +169,7 @@ class ArchiveEngine {
                     let excludePatterns = self.zipExcludePatterns(
                         baseName: baseName,
                         removeMacFiles: removeMacFiles,
-                        exclusions: normalizedExclusions
+                        exclusions: mergedExclusions
                     )
                     if !excludePatterns.isEmpty {
                         let excludeListURL = try self.writeListFile(
@@ -212,7 +208,7 @@ class ArchiveEngine {
                     let excludePatterns = self.sevenZipExcludePatterns(
                         baseName: baseName,
                         removeMacFiles: removeMacFiles,
-                        exclusions: normalizedExclusions
+                        exclusions: mergedExclusions
                     )
                     if !excludePatterns.isEmpty {
                         let excludeListURL = try self.writeListFile(
@@ -409,6 +405,25 @@ class ArchiveEngine {
         }
 
         return task
+    }
+
+    private static func normalizedExcludedPaths(_ paths: [ExcludedPath]) -> [ExcludedPath] {
+        paths
+            .map { exclusion -> ExcludedPath in
+                let cleanPath = exclusion.relativePath
+                    .replacingOccurrences(of: "\\", with: "/")
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                return ExcludedPath(relativePath: cleanPath, isDirectory: exclusion.isDirectory)
+            }
+            .filter { !$0.relativePath.isEmpty }
+    }
+
+    /// Manual tree exclusions override `.gitignore` for the same relative path.
+    private static func mergedExcludedPaths(_ manual: [ExcludedPath], _ gitignore: [ExcludedPath]) -> [ExcludedPath] {
+        var byPath: [String: ExcludedPath] = [:]
+        for entry in gitignore { byPath[entry.relativePath] = entry }
+        for entry in manual { byPath[entry.relativePath] = entry }
+        return byPath.values.sorted { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
     }
 
     private struct ProgressPlan {

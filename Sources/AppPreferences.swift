@@ -13,6 +13,7 @@ enum PreferenceKeys {
     static let shareShortcutModifiers = "preferences.shortcuts.share.modifiers"
 
     static let enableMouseForwardForNext = "preferences.enableMouseForwardForNext"
+    static let respectGitignoreWhenCompressing = "preferences.respectGitignoreWhenCompressing"
 }
 
 enum ShortcutModifierMask {

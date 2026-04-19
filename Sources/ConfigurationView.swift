@@ -375,6 +375,8 @@ struct ConfigurationView: View {
     @State private var password = ""
     @State private var encrypt = false
     @State private var removeMacFiles = true
+    @AppStorage(PreferenceKeys.respectGitignoreWhenCompressing) private var respectGitignore = true
+    @State private var hasGitignoreFile = false
     @State private var format = "zip"
     @State private var progress: Double = 0
     @State private var nodes: [FileNode] = []
@@ -454,6 +456,7 @@ struct ConfigurationView: View {
             format = formats.contains(preferredFormat) ? preferredFormat : "zip"
             if workflowMode == .compression {
                 loadTree()
+                hasGitignoreFile = GitignoreFilter.containsGitignoreFile(under: url)
             }
             setupKeyMonitor()
             prepareExtractionFlowIfNeeded()
@@ -633,11 +636,18 @@ struct ConfigurationView: View {
 
             separator
 
-            // Strip metadata
-            Toggle("Strip Mac metadata", isOn: $removeMacFiles)
-                .toggleStyle(.switch).tint(Theme.accent)
-                .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 18).padding(.vertical, 12)
+            VStack(alignment: .leading, spacing: 10) {
+                if hasGitignoreFile {
+                    Toggle("Respect .gitignore", isOn: $respectGitignore)
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                Toggle("Strip Mac metadata", isOn: $removeMacFiles)
+                    .toggleStyle(.switch).tint(Theme.accent)
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 12)
         }
     }
 
@@ -1039,7 +1049,9 @@ struct ConfigurationView: View {
 
         activeArchiveTask = ArchiveEngine.shared.compress(
             url: url, format: format, password: encrypt ? password : "",
-            removeMacFiles: removeMacFiles, excludedPaths: excludedPaths()
+            removeMacFiles: removeMacFiles,
+            excludedPaths: excludedPaths(),
+            gitignoreExcludedPaths: gitignoreExcludedPathsForCompression()
         ) { value in
             progress = value
         } completion: { result in
@@ -1374,5 +1386,13 @@ struct ConfigurationView: View {
     private func excludedPaths() -> [ArchiveEngine.ExcludedPath] {
         flatten(nodes).filter { !$0.isIncluded }
             .map { ArchiveEngine.ExcludedPath(relativePath: $0.relativePath, isDirectory: $0.isDirectory) }
+    }
+
+    private func gitignoreExcludedPathsForCompression() -> [ArchiveEngine.ExcludedPath] {
+        guard respectGitignore, hasGitignoreFile else { return [] }
+        return GitignoreFilter.ignoredEntries(relativeTo: url).compactMap { entry in
+            guard !isNodeIncluded(path: entry.relativePath, in: nodes) else { return nil }
+            return ArchiveEngine.ExcludedPath(relativePath: entry.relativePath, isDirectory: entry.isDirectory)
+        }
     }
 }
