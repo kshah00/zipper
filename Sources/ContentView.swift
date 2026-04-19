@@ -96,11 +96,8 @@ private struct FileDropReceiver: NSViewRepresentable {
 }
 
 struct ContentView: View {
-    let initialURL: URL?
-
     @State private var selectedURL: URL?
     @State private var extractionDirectoryURL: URL?
-    @State private var hasHandledInitialURL = false
     @State private var isDropTargeted = false
     @State private var iconBreathing = false
     @State private var isHoveringDropZone = false
@@ -147,18 +144,25 @@ struct ContentView: View {
             FileDropReceiver(isTargeted: $isDropTargeted, onFileDrop: handleDroppedURL)
         )
         .onAppear {
-            if !hasHandledInitialURL, selectedURL == nil, let initialURL {
-                hasHandledInitialURL = true
-
-                // External item windows need one turn of the run loop before presenting
-                // archive extraction panels; otherwise the destination picker can fail
-                // to appear while the new window is still becoming key.
-                DispatchQueue.main.async {
-                    handlePickedItem(initialURL)
-                }
-            }
+            drainExternalOpenQueue()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .zipperExternalURLsDidEnqueue)) { _ in
+            drainExternalOpenQueue()
         }
         .animation(.easeInOut(duration: 0.3), value: selectedURL != nil)
+    }
+
+    /// Drains URLs queued by `ZipperAppDelegate` (Finder / Services). Deferred one run loop turn so
+    /// extraction save panels reliably become key.
+    private func drainExternalOpenQueue() {
+        let urls = ExternalOpenCoordinator.dequeueAll()
+        guard !urls.isEmpty else { return }
+
+        DispatchQueue.main.async {
+            for url in urls {
+                handlePickedItem(url)
+            }
+        }
     }
 
     // MARK: - Drop Zone
