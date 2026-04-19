@@ -10,6 +10,7 @@
 		18F31977FE18E2C978A7C830 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AFAEE08A84E686DBE27E74 /* ContentView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		31B60A361DFDF46584DF70F4 /* ZipperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		51676C0C7D1C41D5A7538F1F /* AppEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		B1E2A3C4D5E6F708192A3B4C /* ExternalOpenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B708192A3B4C5D /* ExternalOpenCoordinator.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		57C11C78FCD9ED2B6C8909F0 /* FileAssociationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		58A495B2537F3E3A229412F5 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096B2947E3769DEDFFFF7588 /* PreferencesView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		62B17B71E8374212AA2F6784 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5E84D3FB24397E7783F9FB69 /* Assets.xcassets */; };
@@ -33,6 +34,7 @@
 		A3AFAEE08A84E686DBE27E74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAssociationManager.swift; sourceTree = "<group>"; };
 		D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEvents.swift; sourceTree = "<group>"; };
+		C2D3E4F5A6B708192A3B4C5D /* ExternalOpenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalOpenCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -54,6 +56,7 @@
 				8F86A6DA7F834E24BED87357 /* ConfigurationView.swift */,
 				A3AFAEE08A84E686DBE27E74 /* ContentView.swift */,
 				C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */,
+				C2D3E4F5A6B708192A3B4C5D /* ExternalOpenCoordinator.swift */,
 				3C7319681370B2D61D99403C /* Info.plist */,
 				096B2947E3769DEDFFFF7588 /* PreferencesView.swift */,
 				7389591708E89721A354685F /* Theme.swift */,
@@ -176,6 +179,7 @@
 				C18BEF367248CED1DA63DF6B /* ConfigurationView.swift in Sources */,
 				18F31977FE18E2C978A7C830 /* ContentView.swift in Sources */,
 				57C11C78FCD9ED2B6C8909F0 /* FileAssociationManager.swift in Sources */,
+				B1E2A3C4D5E6F708192A3B4C /* ExternalOpenCoordinator.swift in Sources */,
 				58A495B2537F3E3A229412F5 /* PreferencesView.swift in Sources */,
 				7EA522BA6CE938341C1F010F /* Theme.swift in Sources */,
 				31B60A361DFDF46584DF70F4 /* ZipperApp.swift in Sources */,
