@@ -1199,7 +1199,7 @@ struct ConfigurationView: View {
             if nodes.isEmpty {
                 nodes = [FileNode(relativePath: "", name: url.lastPathComponent, isDirectory: false, isIncluded: true)]
             } else {
-                applyGitignoreDefaultSelection()
+                scheduleGitignoreDefaultSelection()
             }
         } catch {
             loadError = "Unable to inspect folder contents."
@@ -1207,15 +1207,24 @@ struct ConfigurationView: View {
         }
     }
 
-    /// Uncheck items that `.gitignore` would ignore; they stay visible in the tree so the user can re-include any path.
-    private func applyGitignoreDefaultSelection() {
-        guard GitignoreFilter.containsGitignoreFile(under: url) else { return }
-        let ignored = Set(GitignoreFilter.ignoredEntries(relativeTo: url).map(\.relativePath))
-        guard !ignored.isEmpty else { return }
-        nodes = applyGitignoreSelection(nodes, ignoredRelativePaths: ignored)
+    /// Gitignore scanning walks the entire tree, which can be slow on big folders.
+    /// Run it off the main thread so the file list appears immediately; apply unchecks when ready.
+    private func scheduleGitignoreDefaultSelection() {
+        let sourceURL = url
+        DispatchQueue.global(qos: .userInitiated).async {
+            let entries = GitignoreFilter.ignoredEntries(relativeTo: sourceURL)
+            guard !entries.isEmpty else { return }
+            let ignored = Set(entries.map(\.relativePath))
+            DispatchQueue.main.async {
+                guard sourceURL == self.url else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    self.nodes = Self.applyGitignoreSelection(self.nodes, ignoredRelativePaths: ignored)
+                }
+            }
+        }
     }
 
-    private func applyGitignoreSelection(_ nodes: [FileNode], ignoredRelativePaths: Set<String>) -> [FileNode] {
+    private static func applyGitignoreSelection(_ nodes: [FileNode], ignoredRelativePaths: Set<String>) -> [FileNode] {
         nodes.map { node in
             var updated = node
             if !updated.children.isEmpty {
