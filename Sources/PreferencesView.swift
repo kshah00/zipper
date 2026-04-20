@@ -5,6 +5,7 @@ struct PreferencesView: View {
     @AppStorage(PreferenceKeys.defaultSaveLocationBookmark) private var defaultSaveLocationBookmark = Data()
     @AppStorage(PreferenceKeys.preferredFormat) private var preferredFormat = "zip"
     @AppStorage(PreferenceKeys.openArchivesByDefault) private var openArchivesByDefault = false
+    @AppStorage(PreferenceKeys.respectGitignoreByDefault) private var respectGitignoreByDefault = false
 
     @AppStorage(PreferenceKeys.saveShortcutKey) private var saveShortcutKey = "s"
     @AppStorage(PreferenceKeys.saveShortcutModifiers) private var saveShortcutModifiers = ShortcutModifierMask.command
@@ -23,6 +24,8 @@ struct PreferencesView: View {
                 .pickerStyle(.segmented)
 
                 Toggle("Make Zipper the default app for zip / rar / 7z files", isOn: $openArchivesByDefault)
+
+                Toggle("Respect .gitignore by default when compressing folders", isOn: $respectGitignoreByDefault)
             }
 
             Section("Default Save Location") {

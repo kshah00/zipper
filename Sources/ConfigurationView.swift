@@ -1,6 +1,31 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MARK: - Shared chrome (matches file list row checkmarks)
+
+private struct CircleCheckmarkIndicator: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(isOn ? Theme.accent : Color.clear)
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle().stroke(
+                        isOn ? Theme.accent : Theme.textMuted,
+                        lineWidth: 1.2
+                    )
+                )
+            if isOn {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.black)
+            }
+        }
+    }
+}
+
 // MARK: - Supporting Views (extracted to avoid recursive type inference issues)
 
 private struct TreeRowView: View {
@@ -45,23 +70,8 @@ private struct TreeRowView: View {
     }
 
     private var checkbox: some View {
-        ZStack {
-            Circle()
-                .fill(isOnBinding.wrappedValue ? Theme.accent : Color.clear)
-                .frame(width: 16, height: 16)
-                .overlay(
-                    Circle().stroke(
-                        isOnBinding.wrappedValue ? Theme.accent : Theme.textMuted,
-                        lineWidth: 1.2
-                    )
-                )
-            if isOnBinding.wrappedValue {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.black)
-            }
-        }
-        .contentShape(Rectangle())
+        CircleCheckmarkIndicator(isOn: isOnBinding.wrappedValue)
+            .contentShape(Rectangle())
     }
 
     private var rowContent: some View {
@@ -375,6 +385,9 @@ struct ConfigurationView: View {
     @State private var password = ""
     @State private var encrypt = false
     @State private var removeMacFiles = true
+    @State private var gitignorePaths: Set<String> = []
+    @State private var isScanningGitignore = false
+    @State private var respectGitignoreForThisArchive = false
     @State private var format = "zip"
     @State private var progress: Double = 0
     @State private var nodes: [FileNode] = []
@@ -394,6 +407,7 @@ struct ConfigurationView: View {
     @AppStorage(PreferenceKeys.saveShortcutModifiers) private var saveShortcutModifiers = ShortcutModifierMask.command
     @AppStorage(PreferenceKeys.shareShortcutKey) private var shareShortcutKey = "e"
     @AppStorage(PreferenceKeys.shareShortcutModifiers) private var shareShortcutModifiers = ShortcutModifierMask.command
+    @AppStorage(PreferenceKeys.respectGitignoreByDefault) private var respectGitignoreByDefault = false
     @FocusState private var isSearchFocused: Bool
 
     private let formats = ["zip", "7z"]
@@ -572,6 +586,40 @@ struct ConfigurationView: View {
                         .font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
+                if isScanningGitignore {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                            .frame(width: 12, height: 12)
+                        Text("Scanning .gitignore…")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Theme.surface, in: Capsule())
+                } else if !gitignorePaths.isEmpty {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            respectGitignoreBinding.wrappedValue.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            CircleCheckmarkIndicator(isOn: respectGitignoreBinding.wrappedValue)
+                            HStack(spacing: 4) {
+                                Text("Respect .gitignore")
+                                    .font(.system(size: 11, weight: .medium))
+                                Text("(\(formattedGitignoreIgnoreCount))")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            .foregroundStyle(Theme.textPrimary)
+                        }
+                        .padding(.leading, 10).padding(.trailing, 12).padding(.vertical, 6)
+                        .background(Theme.surface, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
                 Text("\(includedCount) selected")
                     .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 8).padding(.vertical, 4)
@@ -633,11 +681,54 @@ struct ConfigurationView: View {
 
             separator
 
-            // Strip metadata
             Toggle("Strip Mac metadata", isOn: $removeMacFiles)
                 .toggleStyle(.switch).tint(Theme.accent)
                 .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 18).padding(.vertical, 12)
+        }
+    }
+
+    private var respectGitignoreBinding: Binding<Bool> {
+        Binding(
+            get: { respectGitignoreForThisArchive },
+            set: { newValue in
+                respectGitignoreForThisArchive = newValue
+                applyRespectGitignoreSelection(newValue)
+            }
+        )
+    }
+
+    private func applyRespectGitignoreSelection(_ enabled: Bool) {
+        guard !gitignorePaths.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            nodes = Self.setInclusion(nodes, for: gitignorePaths, isIncluded: !enabled)
+        }
+    }
+
+    private static func setInclusion(_ nodes: [FileNode], for paths: Set<String>, isIncluded: Bool) -> [FileNode] {
+        nodes.map { node in
+            var updated = node
+            if !updated.children.isEmpty {
+                updated.children = setInclusion(updated.children, for: paths, isIncluded: isIncluded)
+            }
+            if paths.contains(updated.relativePath) {
+                updated.isIncluded = isIncluded
+                if !updated.children.isEmpty {
+                    updated.children = setAllIncludedStatic(updated.children, included: isIncluded)
+                }
+            } else if updated.isDirectory, !updated.children.isEmpty {
+                updated.isIncluded = updated.children.contains(where: \.isIncluded)
+            }
+            return updated
+        }
+    }
+
+    private static func setAllIncludedStatic(_ nodes: [FileNode], included: Bool) -> [FileNode] {
+        nodes.map { node in
+            var u = node
+            u.isIncluded = included
+            if !u.children.isEmpty { u.children = setAllIncludedStatic(u.children, included: included) }
+            return u
         }
     }
 
@@ -1157,6 +1248,17 @@ struct ConfigurationView: View {
 
     private var includedCount: Int { flatten(nodes).filter(\.isIncluded).count }
 
+    private var formattedGitignoreIgnoreCount: String {
+        let n = gitignorePaths.count
+        if n >= 10_000 {
+            let f = NumberFormatter()
+            f.numberStyle = .decimal
+            f.groupingSeparator = ","
+            return f.string(from: NSNumber(value: n)) ?? "\(n)"
+        }
+        return "\(n)"
+    }
+
     struct NodeRow { let node: FileNode; let level: Int }
 
     private var visibleRows: [NodeRow] {
@@ -1199,10 +1301,36 @@ struct ConfigurationView: View {
             nodes = try buildNodes(for: url, baseURL: url)
             if nodes.isEmpty {
                 nodes = [FileNode(relativePath: "", name: url.lastPathComponent, isDirectory: false, isIncluded: true)]
+            } else {
+                scheduleGitignoreDefaultSelection()
             }
         } catch {
             loadError = "Unable to inspect folder contents."
             nodes = [FileNode(relativePath: "", name: url.lastPathComponent, isDirectory: false, isIncluded: true)]
+        }
+    }
+
+    /// Walks the folder off the main thread to find gitignored paths so the file list appears instantly.
+    /// On return, records the set for the toggle and applies the default selection.
+    private func scheduleGitignoreDefaultSelection() {
+        let sourceURL = url
+        let defaultOn = respectGitignoreByDefault
+        isScanningGitignore = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let entries = GitignoreFilter.ignoredEntries(relativeTo: sourceURL)
+            let ignored = Set(entries.map(\.relativePath))
+            DispatchQueue.main.async {
+                guard sourceURL == self.url else { return }
+                self.isScanningGitignore = false
+                self.gitignorePaths = ignored
+                guard !ignored.isEmpty else { return }
+                self.respectGitignoreForThisArchive = defaultOn
+                if defaultOn {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        self.nodes = Self.setInclusion(self.nodes, for: ignored, isIncluded: false)
+                    }
+                }
+            }
         }
     }
 
