@@ -6,6 +6,8 @@ struct PreferencesView: View {
     @AppStorage(PreferenceKeys.preferredFormat) private var preferredFormat = "zip"
     @AppStorage(PreferenceKeys.openArchivesByDefault) private var openArchivesByDefault = false
     @AppStorage(PreferenceKeys.respectGitignoreByDefault) private var respectGitignoreByDefault = false
+    @AppStorage(PreferenceKeys.checkForUpdatesOnLaunch) private var checkForUpdatesOnLaunch = true
+    @AppStorage(PreferenceKeys.automaticallyDownloadUpdates) private var automaticallyDownloadUpdates = false
 
     @AppStorage(PreferenceKeys.saveShortcutKey) private var saveShortcutKey = "s"
     @AppStorage(PreferenceKeys.saveShortcutModifiers) private var saveShortcutModifiers = ShortcutModifierMask.command
@@ -41,6 +43,15 @@ struct PreferencesView: View {
                 }
             }
 
+            Section("Updates") {
+                Toggle("Check for updates when Zipper opens", isOn: $checkForUpdatesOnLaunch)
+                Toggle("Automatically download new releases (opens the file in Finder when ready)", isOn: $automaticallyDownloadUpdates)
+                Text("Updates are fetched from GitHub Releases. Installing still requires opening the disk image and replacing the app in Applications.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Shortcuts") {
                 ShortcutRecorderRow(
                     title: "Save As…",
@@ -57,7 +68,7 @@ struct PreferencesView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 500, height: 460)
+        .frame(width: 500, height: 560)
         .navigationTitle("Zipper Preferences")
         .padding(16)
         .background(Theme.bg)

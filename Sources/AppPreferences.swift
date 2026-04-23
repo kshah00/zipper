@@ -14,6 +14,10 @@ enum PreferenceKeys {
 
     static let enableMouseForwardForNext = "preferences.enableMouseForwardForNext"
     static let respectGitignoreByDefault = "preferences.respectGitignoreByDefault"
+
+    static let checkForUpdatesOnLaunch = "preferences.updates.checkOnLaunch"
+    static let automaticallyDownloadUpdates = "preferences.updates.automaticallyDownload"
+    static let lastUpdateCheckTimestamp = "preferences.updates.lastCheckTimestamp"
 }
 
 enum ShortcutModifierMask {
