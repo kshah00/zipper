@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		18F31977FE18E2C978A7C830 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AFAEE08A84E686DBE27E74 /* ContentView.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		31B60A361DFDF46584DF70F4 /* ZipperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
+		A2F60718293A4B5C6D708192A3B4C5D6 /* AppUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F60718293A4B5C6D708192A3B4C5D6 /* AppUpdateController.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		51676C0C7D1C41D5A7538F1F /* AppEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BD5CD8C0F5EA66CCFDAE31 /* AppEvents.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		B1E2A3C4D5E6F708192A3B4C /* ExternalOpenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B708192A3B4C5D /* ExternalOpenCoordinator.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		57C11C78FCD9ED2B6C8909F0 /* FileAssociationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C985C47A87CDF776F78FA702 /* FileAssociationManager.swift */; settings = {COMPILER_FLAGS = "-Wall"; }; };
@@ -31,6 +32,7 @@
 		8FEF4A554D71B952AB62F29E /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
 		B12E4F8A9D0C1B2E3456789A /* GitignoreFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitignoreFilter.swift; sourceTree = "<group>"; };
 		92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipperApp.swift; sourceTree = "<group>"; };
+		A1F60718293A4B5C6D708192A3B4C5D6 /* AppUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateController.swift; sourceTree = "<group>"; };
 		98BE0BFE6126BC1106F7BFB8 /* Zipper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zipper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A214D75CDE06A08A1270BB99 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		A3AFAEE08A84E686DBE27E74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -61,6 +63,7 @@
 				C2D3E4F5A6B708192A3B4C5D /* ExternalOpenCoordinator.swift */,
 				B12E4F8A9D0C1B2E3456789A /* GitignoreFilter.swift */,
 				3C7319681370B2D61D99403C /* Info.plist */,
+				A1F60718293A4B5C6D708192A3B4C5D6 /* AppUpdateController.swift */,
 				096B2947E3769DEDFFFF7588 /* PreferencesView.swift */,
 				7389591708E89721A354685F /* Theme.swift */,
 				92C4BF0F4480A3AD00A6CBEC /* ZipperApp.swift */,
@@ -177,6 +180,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				51676C0C7D1C41D5A7538F1F /* AppEvents.swift in Sources */,
+				A2F60718293A4B5C6D708192A3B4C5D6 /* AppUpdateController.swift in Sources */,
 				8EC4927188D2B14963DB1F5E /* AppPreferences.swift in Sources */,
 				7802A2135F5429350B6B4667 /* ArchiveEngine.swift in Sources */,
 				B12E4F8A9D0C1B2E3456789B /* GitignoreFilter.swift in Sources */,

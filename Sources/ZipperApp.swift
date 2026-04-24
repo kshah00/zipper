@@ -2,6 +2,10 @@ import SwiftUI
 import AppKit
 
 final class ZipperAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        AppUpdateController.shared.applicationDidFinishLaunching()
+    }
+
     private func routeExternalOpen(urls: [URL], application: NSApplication) {
         ExternalOpenCoordinator.enqueue(urls: urls)
         Task { @MainActor in
@@ -34,6 +38,7 @@ final class ZipperAppDelegate: NSObject, NSApplicationDelegate {
 struct ZipperApp: App {
     @NSApplicationDelegateAdaptor(ZipperAppDelegate.self) private var appDelegate
     @AppStorage(PreferenceKeys.openArchivesByDefault) private var openArchivesByDefault = false
+    @AppStorage(PreferenceKeys.checkForUpdatesOnLaunch) private var checkForUpdatesOnLaunch = true
 
     var body: some Scene {
         Window("Zipper", id: "main") {
@@ -47,9 +52,21 @@ struct ZipperApp: App {
                 .onChange(of: openArchivesByDefault) { enabled in
                     FileAssociationManager.setArchiveAssociation(enabled: enabled)
                 }
+                .onChange(of: checkForUpdatesOnLaunch) { enabled in
+                    if enabled {
+                        AppUpdateController.shared.scheduleBackgroundCheckIfNeeded()
+                    }
+                }
         }
         .windowResizability(.automatic)
         .windowStyle(.hiddenTitleBar)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    AppUpdateController.shared.checkForUpdatesFromUser()
+                }
+            }
+        }
 
         Settings {
             PreferencesView()
